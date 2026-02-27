@@ -1,11 +1,12 @@
 import { InjectRepository } from '@mikro-orm/nestjs';
 import { EntityRepository } from '@mikro-orm/core';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, forwardRef, Inject } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { User } from '../dal/entity/user.entity';
 import { NotificationService } from '../notification/notification.service';
 import { GratitudeService } from '../gratitude/gratitude.service';
 import { KeywordExtractorService } from './keyword-extractor.service';
+import { CrosswordService } from '../crossword/crossword.service';
 
 @Injectable()
 export class SchedulerService {
@@ -17,6 +18,8 @@ export class SchedulerService {
     private readonly notificationService: NotificationService,
     private readonly gratitudeService: GratitudeService,
     private readonly keywordExtractor: KeywordExtractorService,
+    @Inject(forwardRef(() => CrosswordService))
+    private readonly crosswordService: CrosswordService,
   ) {}
 
   /**
@@ -59,6 +62,10 @@ export class SchedulerService {
   async generateWeeklyGratitudeCrosswords(): Promise<void> {
     this.logger.log('Weekly crossword generation starting...');
     const users = await this.userRepository.findAll();
+    // Sunday midnight — the week that just ended started last Monday
+    const weekStart = new Date();
+    weekStart.setDate(weekStart.getDate() - 6);
+    const weekStartDate = weekStart.toISOString().split('T')[0];
 
     for (const user of users) {
       const entries = await this.gratitudeService.getEntriesForLastWeek(
@@ -68,11 +75,22 @@ export class SchedulerService {
 
       const allTexts = entries.flatMap((e) => e.entries);
       const keywords = this.keywordExtractor.extractKeywords(allTexts);
-
       this.logger.log(
         `User ${user.id} — keywords for this week's crossword: ${keywords.join(', ')}`,
       );
-      // Crossword puzzle generation and storage added in step 5.
+      await this.crosswordService.generateAndSavePuzzle(
+        user.id,
+        weekStartDate,
+        entries,
+      );
+      await this.notificationService.sendWebPushNotification(
+        {
+          title: "This week's gratitude crossword is ready! 🧩",
+          body: 'Your weekly crossword puzzle has been generated.',
+          click_action: '/crossword',
+        },
+        user.id,
+      );
     }
   }
 

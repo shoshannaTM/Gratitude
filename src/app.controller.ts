@@ -5,10 +5,13 @@ import {
   Logger,
   Post,
   Render,
+  Res,
   Sse,
 } from '@nestjs/common';
 import { Subject } from 'rxjs';
 import { AppService } from './app.service';
+import { GratitudeService } from './gratitude/gratitude.service';
+import { type Response } from 'express';
 
 @Controller()
 export class AppController {
@@ -16,14 +19,34 @@ export class AppController {
 
   private message$ = new Subject<string>();
 
-  constructor(private readonly appService: AppService) {}
+  constructor(
+    private readonly appService: AppService,
+    private readonly gratitudeService: GratitudeService,
+  ) {}
 
   @Get()
   @Render('index')
-  getHello(): any {
-    return {
-      message: this.appService.getHello(),
-    };
+  async getHello(@Res({ passthrough: true }) res: Response): Promise<any> {
+    const user = (res as any).locals?.user;
+    let todayEntry: Record<string, any> | null = null;
+    let inputSlots: number[] = [];
+    const today = new Date().toISOString().split('T')[0];
+    const todayFormatted = new Date().toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+
+    if (user) {
+      todayEntry = await this.gratitudeService.getTodaysEntry(user.id);
+      if (!todayEntry) {
+        const count = user.promptCount ?? 3;
+        inputSlots = Array.from({ length: count }, (_, i) => i + 1);
+      }
+    }
+
+    return { todayEntry, inputSlots, today, todayFormatted };
   }
 
   @Get('chat')

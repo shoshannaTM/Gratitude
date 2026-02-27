@@ -19,7 +19,10 @@ import { EmailModule } from './email/email.module';
 import { ViewContextMiddleware } from './middleware/view-context.middleware';
 import { AcceptLanguageResolver, I18nModule } from 'nestjs-i18n';
 import { GratitudeModule } from './gratitude/gratitude.module';
+import { CrosswordModule } from './crossword/crossword.module';
 import { OpenGraphModule } from './open-graph/open-graph.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { SchedulerModule } from './scheduler/scheduler.module';
 import { MikroOrmModule } from '@mikro-orm/nestjs';
 import { User } from './dal/entity/user.entity';
 import { seconds, ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
@@ -182,6 +185,7 @@ import { LoggerModule } from 'nestjs-pino';
         },
       ],
     }),
+    ScheduleModule.forRoot(),
     DalModule,
     AuthModule,
     FileModule,
@@ -189,6 +193,8 @@ import { LoggerModule } from 'nestjs-pino';
     NotificationModule,
     OpenGraphModule,
     GratitudeModule,
+    CrosswordModule,
+    SchedulerModule,
   ],
   controllers: [AppController],
   providers: [

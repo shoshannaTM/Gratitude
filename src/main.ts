@@ -47,6 +47,9 @@ async function bootstrap() {
   hbs.registerHelper('ifEquals', function (arg1, arg2, options) {
     return arg1 == arg2 ? options.fn(this) : options.inverse(this);
   });
+  hbs.registerHelper('eq', function (arg1, arg2) {
+    return arg1 == arg2;
+  });
 
   /** Serve htmx and other libraries from node_modules
    * https://htmx.org/docs/#installing
