@@ -22,7 +22,47 @@ import { RegisterDto } from './dto/register.dto';
 import { ResetPasswordDto } from './dto/resetPassword.dto';
 import { User } from './user.decorator';
 import { UpdateEmailDto } from './dto/updateEmail.dto';
+import { UpdatePreferencesDto } from './dto/updatePreferences.dto';
 import { minutes, seconds, Throttle } from '@nestjs/throttler';
+
+const COMMON_TIMEZONES = [
+  'UTC',
+  'America/New_York',
+  'America/Chicago',
+  'America/Denver',
+  'America/Los_Angeles',
+  'America/Anchorage',
+  'Pacific/Honolulu',
+  'America/Toronto',
+  'America/Vancouver',
+  'America/Sao_Paulo',
+  'America/Buenos_Aires',
+  'America/Mexico_City',
+  'Europe/London',
+  'Europe/Paris',
+  'Europe/Berlin',
+  'Europe/Madrid',
+  'Europe/Rome',
+  'Europe/Amsterdam',
+  'Europe/Stockholm',
+  'Europe/Warsaw',
+  'Europe/Istanbul',
+  'Europe/Moscow',
+  'Africa/Cairo',
+  'Africa/Johannesburg',
+  'Africa/Lagos',
+  'Asia/Dubai',
+  'Asia/Kolkata',
+  'Asia/Dhaka',
+  'Asia/Bangkok',
+  'Asia/Singapore',
+  'Asia/Shanghai',
+  'Asia/Tokyo',
+  'Asia/Seoul',
+  'Australia/Sydney',
+  'Australia/Melbourne',
+  'Pacific/Auckland',
+];
 
 @Controller('auth')
 export class AuthController {
@@ -214,6 +254,41 @@ export class AuthController {
   @Get('update-email')
   @Render('auth/update-email')
   getUpdateEmail() {}
+
+  @UseGuards(AuthGuard)
+  @Get('preferences')
+  @Render('auth/preferences')
+  getPreferences(): any {
+    return {
+      timezones: COMMON_TIMEZONES,
+    };
+  }
+
+  @UseGuards(AuthGuard)
+  @Post('preferences')
+  async postPreferences(
+    @User() payload: Payload,
+    @I18n() i18n: I18nContext,
+    @Body() body: UpdatePreferencesDto,
+    @Res() response: Response,
+  ) {
+    const instance = plainToInstance(UpdatePreferencesDto, body);
+    const validationErrors = await i18n.validate(instance);
+    if (validationErrors.length) {
+      return response.render('auth/preferences', {
+        layout: 'layout',
+        input: body,
+        validationErrors,
+      });
+    }
+    await this.authService.updatePreferences(
+      payload.userId,
+      instance.promptTime,
+      instance.promptCount,
+      instance.timezone,
+    );
+    return response.redirect('/auth/profile');
+  }
 
   @Render('auth/update-email')
   @Post('validate/update-email')
