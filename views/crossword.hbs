@@ -1,0 +1,236 @@
+{{>navbar}}
+<main class="flex flex-col items-center gap-6 py-8 px-4">
+
+  {{#if puzzle}}
+
+  <h1 class="text-2xl font-bold">Week of {{puzzle.weekStartDate}}</h1>
+
+  {{! ── Interactive grid ── }}
+  <div id="crossword-grid" class="overflow-auto"></div>
+
+  {{! ── Action buttons ── }}
+  <div class="flex gap-3">
+    <button class="btn btn-outline" onclick="checkAnswers()">Check</button>
+    <button class="btn btn-outline" onclick="revealAll()">Reveal</button>
+    <button class="btn btn-ghost" onclick="clearAll()">Clear</button>
+  </div>
+
+  {{! ── Clues ── }}
+  <div class="flex flex-col sm:flex-row gap-8 w-full max-w-2xl">
+    <div class="flex-1">
+      <h2 class="font-bold text-lg mb-2">Across</h2>
+      <ol class="list-none space-y-1" id="clues-across"></ol>
+    </div>
+    <div class="flex-1">
+      <h2 class="font-bold text-lg mb-2">Down</h2>
+      <ol class="list-none space-y-1" id="clues-down"></ol>
+    </div>
+  </div>
+
+  {{! ── Past puzzles ── }}
+  {{#if history.length}}
+  <div class="divider w-full max-w-2xl"></div>
+  <div class="w-full max-w-2xl">
+    <h2 class="font-bold mb-2">Past puzzles</h2>
+    <ul class="space-y-1">
+      {{#each history}}
+      <li>
+        <a class="link" href="/crossword/{{this.weekStartDate}}">
+          Week of {{this.weekStartDate}}
+        </a>
+      </li>
+      {{/each}}
+    </ul>
+  </div>
+  {{/if}}
+
+  {{else}}
+  <div class="hero min-h-[60vh]">
+    <div class="hero-content text-center">
+      <div>
+        <h1 class="text-3xl font-bold mb-4">No puzzle yet 🧩</h1>
+        <p class="text-base-content/70">
+          Your first crossword will appear here every Sunday, generated from
+          the week's gratitudes. Keep logging — your puzzle is on its way!
+        </p>
+      </div>
+    </div>
+  </div>
+  {{/if}}
+
+</main>
+
+{{#if puzzle}}
+<script>
+  const PUZZLE = {{{json puzzle}}};
+
+  const grid = PUZZLE.grid;
+  const words = PUZZLE.words;
+  const rows = grid.length;
+  const cols = grid[0]?.length ?? 0;
+
+  // Map "r,c" → clue number for cells that start a word
+  const cellNumbers = {};
+  words.forEach(w => {
+    cellNumbers[`${w.row},${w.col}`] = w.number;
+  });
+
+  // Build the HTML table
+  function buildGrid() {
+    const table = document.createElement('table');
+    table.style.cssText = 'border-collapse:collapse;';
+
+    for (let r = 0; r < rows; r++) {
+      const tr = document.createElement('tr');
+      for (let c = 0; c < cols; c++) {
+        const td = document.createElement('td');
+        const letter = grid[r][c];
+
+        if (letter === null) {
+          td.style.cssText = 'width:36px;height:36px;background:#222;';
+        } else {
+          td.style.cssText = 'width:36px;height:36px;position:relative;border:1px solid #aaa;';
+          const num = cellNumbers[`${r},${c}`];
+          if (num) {
+            const span = document.createElement('span');
+            span.textContent = num;
+            span.style.cssText = 'position:absolute;top:1px;left:2px;font-size:9px;line-height:1;pointer-events:none;';
+            td.appendChild(span);
+          }
+          const input = document.createElement('input');
+          input.maxLength = 1;
+          input.dataset.answer = letter.toUpperCase();
+          input.dataset.row = r;
+          input.dataset.col = c;
+          input.style.cssText = 'width:100%;height:100%;border:none;background:transparent;text-align:center;text-transform:uppercase;font-size:16px;font-weight:bold;outline:none;padding-top:8px;box-sizing:border-box;cursor:pointer;';
+          input.addEventListener('input', onInput);
+          input.addEventListener('keydown', onKeyDown);
+          input.addEventListener('focus', onFocus);
+          td.appendChild(input);
+        }
+        tr.appendChild(td);
+      }
+      table.appendChild(tr);
+    }
+    document.getElementById('crossword-grid').appendChild(table);
+  }
+
+  function getInput(r, c) {
+    return document.querySelector(`input[data-row="${r}"][data-col="${c}"]`);
+  }
+
+  let activeWord = null;
+
+  function onFocus(e) {
+    const r = parseInt(e.target.dataset.row);
+    const c = parseInt(e.target.dataset.col);
+    // Highlight the word containing this cell
+    const match = words.find(w => {
+      if (w.direction === 'across') return w.row === r && c >= w.col && c < w.col + w.word.length;
+      return w.col === c && r >= w.row && r < w.row + w.word.length;
+    });
+    activeWord = match ?? null;
+    highlightActiveWord();
+  }
+
+  function highlightActiveWord() {
+    document.querySelectorAll('input').forEach(i => {
+      i.style.background = 'transparent';
+    });
+    if (!activeWord) return;
+    const w = activeWord;
+    for (let i = 0; i < w.word.length; i++) {
+      const inp = w.direction === 'across'
+        ? getInput(w.row, w.col + i)
+        : getInput(w.row + i, w.col);
+      if (inp) inp.style.background = 'oklch(var(--p)/0.15)';
+    }
+  }
+
+  function onInput(e) {
+    if (e.target.value) advanceCursor(e.target);
+  }
+
+  function advanceCursor(input) {
+    if (!activeWord) return;
+    const r = parseInt(input.dataset.row);
+    const c = parseInt(input.dataset.col);
+    const next = activeWord.direction === 'across'
+      ? getInput(r, c + 1)
+      : getInput(r + 1, c);
+    if (next) next.focus();
+  }
+
+  function onKeyDown(e) {
+    const r = parseInt(e.target.dataset.row);
+    const c = parseInt(e.target.dataset.col);
+    if (e.key === 'Backspace' && !e.target.value && activeWord) {
+      const prev = activeWord.direction === 'across'
+        ? getInput(r, c - 1)
+        : getInput(r - 1, c);
+      if (prev) { prev.value = ''; prev.focus(); }
+    }
+    if (e.key === 'ArrowRight') { const n = getInput(r, c + 1); if (n) { e.preventDefault(); n.focus(); } }
+    if (e.key === 'ArrowLeft')  { const n = getInput(r, c - 1); if (n) { e.preventDefault(); n.focus(); } }
+    if (e.key === 'ArrowDown')  { const n = getInput(r + 1, c); if (n) { e.preventDefault(); n.focus(); } }
+    if (e.key === 'ArrowUp')    { const n = getInput(r - 1, c); if (n) { e.preventDefault(); n.focus(); } }
+  }
+
+  function checkAnswers() {
+    document.querySelectorAll('input').forEach(input => {
+      if (!input.value) { input.style.color = ''; return; }
+      input.style.color = input.value.toUpperCase() === input.dataset.answer
+        ? 'oklch(var(--su))' : 'oklch(var(--er))';
+    });
+  }
+
+  function revealAll() {
+    document.querySelectorAll('input').forEach(input => {
+      input.value = input.dataset.answer;
+      input.style.color = 'oklch(var(--su))';
+    });
+  }
+
+  function clearAll() {
+    document.querySelectorAll('input').forEach(input => {
+      input.value = '';
+      input.style.color = '';
+    });
+  }
+
+  function buildClues() {
+    const across = words.filter(w => w.direction === 'across').sort((a, b) => a.number - b.number);
+    const down   = words.filter(w => w.direction === 'down').sort((a, b) => a.number - b.number);
+
+    const listAcross = document.getElementById('clues-across');
+    const listDown   = document.getElementById('clues-down');
+
+    across.forEach(w => {
+      const li = document.createElement('li');
+      li.innerHTML = `<span class="font-semibold">${w.number}.</span> ${w.clue}`;
+      li.style.cursor = 'pointer';
+      li.addEventListener('click', () => {
+        const inp = getInput(w.row, w.col);
+        if (inp) { activeWord = w; inp.focus(); }
+      });
+      listAcross.appendChild(li);
+    });
+
+    down.forEach(w => {
+      const li = document.createElement('li');
+      li.innerHTML = `<span class="font-semibold">${w.number}.</span> ${w.clue}`;
+      li.style.cursor = 'pointer';
+      li.addEventListener('click', () => {
+        const inp = getInput(w.row, w.col);
+        if (inp) { activeWord = w; inp.focus(); }
+      });
+      listDown.appendChild(li);
+    });
+  }
+
+  buildGrid();
+  buildClues();
+</script>
+{{/if}}
+
+{{>dock}}
