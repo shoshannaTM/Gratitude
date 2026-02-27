@@ -1,0 +1,62 @@
+{{>navbar}}
+<main class="flex flex-col justify-center items-center h-full gap-3">
+  <form hx-post="/auth/preferences" hx-trigger="submit" hx-target="body">
+    <fieldset
+      class="fieldset bg-base-200 border-base-300 rounded-box w-xs border p-4"
+    >
+      <legend class="fieldset-legend">Gratitude Preferences</legend>
+
+      {{! ── Daily prompt time ── }}
+      <label class="label">Daily prompt time</label>
+      <input
+        class="input w-full {{#if (filterErrors validationErrors 'promptTime')}}input-error{{/if}}"
+        id="promptTime"
+        name="promptTime"
+        type="time"
+        value="{{#if input.promptTime}}{{input.promptTime}}{{else}}{{user.promptTime}}{{/if}}"
+        required
+      />
+      {{#each (filterErrors validationErrors "promptTime")}}
+        <p class="text-error">{{this}}</p>
+      {{/each}}
+
+      {{! ── Number of gratitudes ── }}
+      <label class="label mt-2">Gratitudes per day (minimum 3)</label>
+      <input
+        class="input w-full {{#if (filterErrors validationErrors 'promptCount')}}input-error{{/if}}"
+        id="promptCount"
+        name="promptCount"
+        type="number"
+        min="3"
+        max="20"
+        value="{{#if input.promptCount}}{{input.promptCount}}{{else}}{{user.promptCount}}{{/if}}"
+        required
+      />
+      {{#each (filterErrors validationErrors "promptCount")}}
+        <p class="text-error">{{this}}</p>
+      {{/each}}
+
+      {{! ── Timezone ── }}
+      <label class="label mt-2">Timezone</label>
+      <select
+        class="select w-full {{#if (filterErrors validationErrors 'timezone')}}select-error{{/if}}"
+        id="timezone"
+        name="timezone"
+        required
+      >
+        {{#each timezones}}
+          <option
+            value="{{this}}"
+            {{#if (eq this ../user.timezone)}}selected{{/if}}
+          >{{this}}</option>
+        {{/each}}
+      </select>
+      {{#each (filterErrors validationErrors "timezone")}}
+        <p class="text-error">{{this}}</p>
+      {{/each}}
+
+      <button class="btn btn-primary mt-4 w-full" type="submit">Save</button>
+    </fieldset>
+  </form>
+</main>
+{{>dock}}
