@@ -86,6 +86,19 @@ export class AuthService {
     await this.em.removeAndFlush(user);
   }
 
+  async updatePreferences(
+    userId: any,
+    promptTime: string,
+    promptCount: number,
+    timezone: string,
+  ): Promise<void> {
+    const user = await this.userRepository.findOneOrFail({ id: userId });
+    user.promptTime = promptTime;
+    user.promptCount = promptCount;
+    user.timezone = timezone;
+    await this.em.persistAndFlush(user);
+  }
+
   public async resetPassword(details: ResetPasswordDto) {
     this.logger.debug(this.resetPassword.name);
     const user = await this.userRepository.findOneOrFail({
