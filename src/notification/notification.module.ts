@@ -10,5 +10,6 @@ import { AuthModule } from '../auth/auth.module';
   imports: [AuthModule, MikroOrmModule.forFeature([User, UserDevice])],
   providers: [NotificationService],
   controllers: [NotificationController],
+  exports: [NotificationService],
 })
 export class NotificationModule {}
